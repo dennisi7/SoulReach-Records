@@ -16,7 +16,9 @@ export async function middleware(request: NextRequest) {
         },
       },
     });
-    await supabase.auth.getUser();
+    // Refresh expiring cookies here. The dashboard verifies the user with
+    // getUser() and checks admin approval before it reads any records.
+    await supabase.auth.getSession();
   }
   response.headers.set("Cache-Control", "private, no-store");
   return response;

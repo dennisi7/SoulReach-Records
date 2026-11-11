@@ -51,7 +51,7 @@ The public form, sign-in, and admin use a small corner lockup reading **ROSA UHA
 
 ### Layout
 
-The public entry opens directly on the form. Above 820 px, the forest panel carries the small **ROSA UHAS / Power the vision** lockup in its upper corner, then the headline **Every encounter matters.** and a short gold rule. The ivory work area holds the secure-record note and form in a column up to 560 px wide. At narrower widths, the forest panel becomes a compact brand header and the form begins directly below it.
+The public entry opens directly on the form. Above 850 px, the forest panel carries the small **ROSA UHAS / Power the vision** lockup in its upper corner, then the headline **Every encounter matters.** and a short gold rule. The ivory work area holds the secure-record note and form in a column up to 560 px wide. At narrower widths, the forest panel becomes a compact brand header and the form begins directly below it.
 
 Show **Step 1 of 3**, the current section name, and a three-segment progress rule. Use the same short step names throughout: **Personal**, **Evangelism**, **Evangelist**. On mobile the current name and step count carry the information, so the full list of labels can collapse. The step indicator is informational. **Back** is a full-size secondary button; **Continue** checks the current section and advances. Keep the current answers while moving between steps. Mark required fields with a red asterisk and show a short “Required field” legend. Do not repeat “optional” in every label: an unmarked field is optional. Use one column on phones. On wide layouts, pair only short, related fields.
 
@@ -81,11 +81,13 @@ Reveal academic level immediately below Student status. If Student is deselected
 
 ### Consent and submission
 
-Consent is obtained before the form is sent. The public form therefore does not ask the evangelist to reconfirm it or expose a distracting checkbox. Keep a short note in step three: **Consent is confirmed before this form is sent.** Store the server-side consent flag as true for submitted records so the admin record remains auditable.
+Consent is obtained before the form is shared. A required checkbox in step three asks the evangelist to confirm that the person agreed to have their details recorded and used for follow-up according to their preference. The server requires this confirmation before saving the record.
 
 Preferred contact method remains a separate required choice. **No Contact** is an explicit instruction and stays distinct from a phone, WhatsApp, or SMS preference. Keep **Submit record** visible as the main action. A fresh form clears personal and encounter answers and resets the date to today.
 
 For every Continue action, retain answers, show a compact error summary above the current section, mark invalid controls with a red border, and repeat the actionable message directly below each field. Focus the first invalid field so the reason for not advancing is immediately clear.
+
+When moving between steps, focus the new heading. Explain that drafts are saved on the device, provide a clear-draft action, and report when storage is unavailable. Remove drafts older than 24 hours when the form checks for a saved draft.
 
 On success show **Record submitted**, a brief acknowledgment, and **Record another encounter**. Keep the confirmation free of names, phone numbers, decisions, and links to submitted records.
 
