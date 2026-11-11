@@ -20,9 +20,11 @@ export default async function AdminPage() {
   let loadFailed = false;
   if (configured) {
     const supabase = await createSupabaseServerClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError?.name === "AuthRetryableFetchError") redirect("/admin/sign-in?error=unavailable");
     if (!user) redirect("/admin/sign-in");
-    const { data: admin } = await supabase.from("approved_admins").select("user_id").eq("user_id", user.id).maybeSingle();
+    const { data: admin, error: approvalError } = await supabase.from("approved_admins").select("user_id").eq("user_id", user.id).maybeSingle();
+    if (approvalError) redirect("/admin/sign-in?error=unavailable");
     if (!admin) redirect("/admin/sign-in?error=access-denied");
     const { data, error } = await supabase.from("evangelism_records").select("*").order("date_reached", { ascending: false });
     loadFailed = Boolean(error);
@@ -53,7 +55,7 @@ export default async function AdminPage() {
   return (
     <main className="admin-shell">
       <header className="admin-topbar">
-        <Link href="/" aria-label="ROSA UHAS public form"><RosaBrand compact /></Link>
+        <Link href="/" className="admin-brand-link" aria-label="ROSA UHAS public form"><RosaBrand compact /></Link>
         <nav className="admin-nav" aria-label="Admin navigation"><a className="active" href="#records">Records</a></nav>
         {process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY &&
           <form action={async () => {

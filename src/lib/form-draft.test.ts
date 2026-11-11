@@ -20,11 +20,17 @@ describe("form draft storage", () => {
     expect(readFormDraft(browserStorage, 2_000)).toEqual({ savedAt: 1_000, step: 1, values });
   });
 
-  it("ignores drafts older than one day", () => {
+  it("removes drafts older than one day", () => {
     const browserStorage = storage();
     saveFormDraft(browserStorage, { step: 0, values: {} as never }, 1_000);
 
     expect(readFormDraft(browserStorage, 1_000 + 24 * 60 * 60 * 1000 + 1)).toBeNull();
+    expect(browserStorage.getItem(FORM_DRAFT_KEY)).toBeNull();
+  });
+
+  it("reports a failed write when storage is unavailable", () => {
+    const unavailable = { setItem() { throw new Error("Storage unavailable"); } };
+    expect(saveFormDraft(unavailable, { step: 0, values: {} as never })).toBe(false);
   });
 
   it("clears the saved draft", () => {

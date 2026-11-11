@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { recordFields } from "@/lib/record-fields";
 import { useRouter } from "next/navigation";
 
@@ -37,6 +37,29 @@ export function AdminRecords({ initialRecords }: { initialRecords: AdminRecord[]
   const [decision, setDecision] = useState("all");
   const [status, setStatus] = useState("all");
   const [selected, setSelected] = useState<AdminRecord | null>(null);
+  const [contactBusy, setContactBusy] = useState(false);
+  const [contactFeedback, setContactFeedback] = useState<{ error: boolean; text: string } | null>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const drawerOpen = selected !== null;
+
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const dialog = dialogRef.current;
+    dialog?.showModal();
+    return () => dialog?.close();
+  }, [drawerOpen]);
+
+  function openDetails(record: AdminRecord) {
+    setActionError("");
+    setConfirmDelete(false);
+    setContactFeedback(null);
+    setSelected(record);
+  }
+
+  function closeDetails() {
+    dialogRef.current?.close();
+    setSelected(null);
+  }
   const filtered = useMemo(() => records.filter((record) => {
     const matchesSearch = `${record.name} ${record.location}`.toLowerCase().includes(search.toLowerCase());
     const matchesDecision = decision === "all" || record.decision === decision;
@@ -60,20 +83,31 @@ export function AdminRecords({ initialRecords }: { initialRecords: AdminRecord[]
   }
 
   async function toggleContact(record: AdminRecord) {
-    if (!record.id || record.status === "Do not contact") return;
+    if (!record.id || record.status === "Do not contact" || contactBusy || busy) return;
+    setContactBusy(true);
+    setContactFeedback(null);
     const contacted = record.status !== "Contacted";
-    const response = await fetch("/api/admin/records", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: record.id, action: "contacted", contacted }) });
-    if (!response.ok) return;
-    const nextStatus = contacted ? "Contacted" : "Not contacted";
-    router.refresh();
-    setSelected((current) => {
-      if (!current || current.id !== record.id) return current;
-      return { ...current, status: nextStatus };
-    });
+    try {
+      const response = await fetch("/api/admin/records", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: record.id, action: "contacted", contacted }),
+      });
+      if (!response.ok) throw new Error("Follow-up update failed");
+      setSelected((current) => current?.id === record.id && current
+        ? { ...current, status: contacted ? "Contacted" : "Not contacted" }
+        : current);
+      setContactFeedback({ error: false, text: contacted ? "Marked as contacted." : "Marked as not contacted." });
+      router.refresh();
+    } catch {
+      setContactFeedback({ error: true, text: "Could not update follow-up. Try again." });
+    } finally {
+      setContactBusy(false);
+    }
   }
 
   async function changeRecord(method: "PATCH" | "DELETE", body: object) {
-    if (busy) return;
+    if (busy || contactBusy) return;
     setBusy(true);
     setActionError("");
     try {
@@ -88,7 +122,7 @@ export function AdminRecords({ initialRecords }: { initialRecords: AdminRecord[]
         return;
       }
       setConfirmDelete(false);
-      setSelected(null);
+      closeDetails();
       router.refresh();
     } catch {
       setActionError("Connection lost. Try again.");
@@ -98,11 +132,24 @@ export function AdminRecords({ initialRecords }: { initialRecords: AdminRecord[]
   }
 
   return <>
-    <div className="records-toolbar"><label className="search-field"><span aria-hidden="true">⌕</span><input placeholder="Search by name or location" aria-label="Search records" value={search} onChange={(event) => setSearch(event.target.value)} /></label><FilterMenu label="Decision" value={decision} onChange={setDecision} options={[{ value: "all", label: "All decisions" }, { value: "New Convert", label: "New Convert" }, { value: "Rededication", label: "Rededication" }]} /><FilterMenu label="Follow-up" value={status} onChange={setStatus} options={[{ value: "all", label: "All follow-up" }, { value: "Contacted", label: "Contacted" }, { value: "Not contacted", label: "Not contacted" }, { value: "Do not contact", label: "Do not contact" }]} /><button className="toolbar-export" type="button" onClick={exportCsv}>Export</button></div>
+    <div className="records-toolbar"><label className="search-field"><span aria-hidden="true">⌕</span><input placeholder="Search by name or location" aria-label="Search records" value={search} onChange={(event) => setSearch(event.target.value)} /></label><FilterMenu label="Decision" value={decision} onChange={setDecision} options={[{ value: "all", label: "All decisions" }, { value: "New Convert", label: "New Convert" }, { value: "Rededication", label: "Rededication" }]} /><FilterMenu label="Follow-up" value={status} onChange={setStatus} options={[{ value: "all", label: "All follow-up" }, { value: "Contacted", label: "Contacted" }, { value: "Not contacted", label: "Not contacted" }, { value: "Do not contact", label: "Do not contact" }]} /><button className="toolbar-export" type="button" onClick={exportCsv} disabled={filtered.length === 0}>Export filtered CSV</button></div>
     <div className="result-line"><span>{filtered.length} record{filtered.length === 1 ? "" : "s"}</span>{(search || decision !== "all" || status !== "all") && <button type="button" onClick={() => { setSearch(""); setDecision("all"); setStatus("all"); }}>Clear filters</button>}</div>
-    <div className="table-wrap"><table><thead><tr><th>Name</th><th>Decision</th><th>Date reached</th><th>Location</th><th>Follow-up</th><th><span className="sr-only">Action</span></th></tr></thead><tbody>{filtered.map((record) => <tr key={`${record.name}-${record.date}-${record.id ?? "preview"}`}><td><button className="name-button" type="button" onClick={() => { setActionError(""); setConfirmDelete(false); setSelected(record); }}><strong>{record.name}</strong><span className="mobile-meta">{record.location}</span></button></td><td><span className={`decision decision-${record.decision === "New Convert" ? "new" : "rededication"}`}>{record.decision}</span></td><td>{record.date}</td><td>{record.location}</td><td><span className="status-dot" />{record.status}</td><td><button className="row-action" type="button" onClick={() => { setActionError(""); setConfirmDelete(false); setSelected(record); }}>View details <span aria-hidden="true">→</span></button></td></tr>)}</tbody></table></div>
-    {filtered.length === 0 && <div className="empty-note"><span className="empty-icon">⌕</span><div><strong>No records match these filters.</strong><p>Clear the filters to see all available records.</p></div></div>}
-    {selected && <div className="detail-backdrop" role="presentation" onClick={() => setSelected(null)}><aside className="detail-panel" role="dialog" aria-modal="true" aria-labelledby="detail-title" onClick={(event) => event.stopPropagation()}><div className="detail-header"><button className="back-button" type="button" onClick={() => setSelected(null)}>← Back to records</button><button className="close-button" type="button" aria-label="Close details" onClick={() => setSelected(null)}>×</button></div><p className="eyebrow">Record details</p><h2 id="detail-title">{selected.name}</h2><div className="detail-meta"><span className={`decision decision-${selected.decision === "New Convert" ? "new" : "rededication"}`}>{selected.decision}</span><span>{selected.date}</span></div><section className="detail-section"><h3>Personal</h3><DetailRow label="Phone" value={selected.phone} /><DetailRow label="Student status" value={selected.studentStatus} /><DetailRow label="Academic level" value={selected.academicLevel} /><DetailRow label="Residence" value={selected.residence} /><DetailRow label="Hostel" value={selected.hostel} /></section><section className="detail-section"><h3>Evangelism</h3><DetailRow label="Church or denomination" value={selected.church} /><DetailRow label="Baptism" value={selected.baptism} /><DetailRow label="Preferred contact" value={selected.contactMethod} /><DetailRow label="Location" value={selected.location} /><DetailRow label="Remarks" value={selected.remarks} /></section><section className="detail-section"><h3>Evangelist</h3><DetailRow label="Full name" value={selected.evangelist} /><DetailRow label="Phone" value={selected.evangelistPhone} /><DetailRow label="Hall or zone" value={selected.hallZone} /><DetailRow label="Department" value={selected.department} /></section><button className="button button-primary contact-button" type="button" disabled={!selected.id || selected.status === "Do not contact"} onClick={() => toggleContact(selected)}>{selected.status === "Contacted" ? "Mark as not contacted" : "Mark as contacted"}</button>{selected.id && selected.fields && (
+    <div className="table-wrap"><table><thead><tr><th>Name</th><th>Decision</th><th>Date reached</th><th>Location</th><th>Follow-up</th><th><span className="sr-only">Action</span></th></tr></thead><tbody>{filtered.map((record) => <tr key={`${record.name}-${record.date}-${record.id ?? "preview"}`}><td><button className="name-button" type="button" onClick={() => openDetails(record)}><strong>{record.name}</strong><span className="mobile-meta">{record.location}</span></button></td><td><span className={`decision decision-${record.decision === "New Convert" ? "new" : "rededication"}`}>{record.decision}</span></td><td>{record.date}</td><td>{record.location}</td><td><span className="status-dot" />{record.status}</td><td><button className="row-action" type="button" onClick={() => openDetails(record)}>View details <span aria-hidden="true">→</span></button></td></tr>)}</tbody></table></div>
+    {filtered.length === 0 && (
+      <div className="empty-note" role="status">
+        <span className="empty-icon" aria-hidden="true">⌕</span>
+        <div>
+          <strong>{records.length ? "No records match these filters." : "No records yet."}</strong>
+          <p>{records.length ? "Try another search or clear the filters." : "Submitted encounters will appear here."}</p>
+        </div>
+      </div>
+    )}
+    {selected && <dialog ref={dialogRef} className="detail-dialog" aria-labelledby="detail-title"
+      onCancel={(event) => { event.preventDefault(); closeDetails(); }}
+      onClick={(event) => { if (event.target === event.currentTarget) closeDetails(); }}>
+      <aside className="detail-panel"><div className="detail-header"><button className="back-button" type="button" onClick={closeDetails}>← Back to records</button><button className="close-button" type="button" aria-label="Close details" onClick={closeDetails}>×</button></div><p className="eyebrow">Record details</p><h2 id="detail-title">{selected.name}</h2><div className="detail-meta"><span className={`decision decision-${selected.decision === "New Convert" ? "new" : "rededication"}`}>{selected.decision}</span><span>{selected.date}</span></div><section className="detail-section"><h3>Personal</h3><DetailRow label="Phone" value={selected.phone} /><DetailRow label="Student status" value={selected.studentStatus} /><DetailRow label="Academic level" value={selected.academicLevel} /><DetailRow label="Residence" value={selected.residence} /><DetailRow label="Hostel" value={selected.hostel} /></section><section className="detail-section"><h3>Evangelism</h3><DetailRow label="Church or denomination" value={selected.church} /><DetailRow label="Baptism" value={selected.baptism} /><DetailRow label="Preferred contact" value={selected.contactMethod} /><DetailRow label="Location" value={selected.location} /><DetailRow label="Remarks" value={selected.remarks} /></section><section className="detail-section"><h3>Evangelist</h3><DetailRow label="Full name" value={selected.evangelist} /><DetailRow label="Phone" value={selected.evangelistPhone} /><DetailRow label="Hall or zone" value={selected.hallZone} /><DetailRow label="Department" value={selected.department} /></section><button className="button button-primary contact-button" type="button" disabled={!selected.id || selected.status === "Do not contact" || contactBusy || busy} onClick={() => toggleContact(selected)}>{contactBusy ? "Saving…" : selected.status === "Contacted" ? "Mark as not contacted" : "Mark as contacted"}</button>
+      {contactFeedback && <p className={contactFeedback.error ? "inline-error" : "muted"} role={contactFeedback.error ? "alert" : "status"}>{contactFeedback.text}</p>}
+      {selected.id && selected.fields && (
       <section className="detail-section" key={selected.id}>
         <details>
           <summary>Edit record</summary>
@@ -127,19 +174,19 @@ export function AdminRecords({ initialRecords }: { initialRecords: AdminRecord[]
                 )}
               </label>
             ))}
-            <button className="button button-primary" disabled={busy}>Save changes</button>
+            <button className="button button-primary" disabled={busy || contactBusy}>Save changes</button>
           </form>
         </details>
         {confirmDelete ? (
           <div role="group" aria-label="Confirm deletion">
             <p>Permanently delete the record for {selected.name}?</p>
             <button type="button" disabled={busy} onClick={() => setConfirmDelete(false)}>Cancel</button>{" "}
-            <button type="button" disabled={busy} onClick={() => void changeRecord("DELETE", { id: selected.id })}>Confirm deletion</button>
+            <button type="button" disabled={busy || contactBusy} onClick={() => void changeRecord("DELETE", { id: selected.id })}>Confirm deletion</button>
           </div>
         ) : <button className="back-button" type="button" onClick={() => setConfirmDelete(true)}>Delete record</button>}
         {actionError && <p role="alert">{actionError}</p>}
       </section>
-    )}</aside></div>}
+    )}</aside></dialog>}
   </>;
 }
 
@@ -147,28 +194,65 @@ function FilterMenu({ label, value, options, onChange }: { label: string; value:
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const selected = options.find((option) => option.value === value) ?? options[0];
+  const selectedIndex = Math.max(0, options.findIndex((option) => option.value === value));
 
   useEffect(() => {
     if (!open) return;
-    const closeOnOutsideClick = (event: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) setOpen(false);
+    wrapperRef.current?.querySelector<HTMLButtonElement>('[aria-selected="true"]')?.focus();
+    const closeOutside = (event: PointerEvent) => {
+      if (!wrapperRef.current?.contains(event.target as Node)) setOpen(false);
     };
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setOpen(false);
-        triggerRef.current?.focus();
-      }
-    };
-    document.addEventListener("mousedown", closeOnOutsideClick);
-    document.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("mousedown", closeOnOutsideClick);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
+    document.addEventListener("pointerdown", closeOutside);
+    return () => document.removeEventListener("pointerdown", closeOutside);
   }, [open]);
 
-  return <div className="filter-menu" ref={wrapperRef}><button ref={triggerRef} className={`filter-trigger ${value !== "all" ? "active" : ""}`} type="button" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen((current) => !current)}><span className="filter-trigger-label">{label}</span><span className="filter-trigger-value">{selected.label}</span><span className="filter-chevron" aria-hidden="true">⌄</span></button>{open && <div className="filter-menu-panel" role="listbox" aria-label={`${label} filter`}>{options.map((option) => <button key={option.value} className="filter-option" type="button" role="option" aria-selected={option.value === value} onClick={() => { onChange(option.value); setOpen(false); }}><span>{option.label}</span>{option.value === value && <span aria-hidden="true">✓</span>}</button>)}</div>}</div>;
+  function handleKey(event: KeyboardEvent<HTMLDivElement>) {
+    const { key } = event;
+    if (open && key === "Escape") {
+      event.preventDefault();
+      setOpen(false);
+      triggerRef.current?.focus();
+      return;
+    }
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(key)) return;
+    event.preventDefault();
+    if (!open) {
+      setOpen(true);
+      return;
+    }
+    const items = Array.from(wrapperRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]') ?? []);
+    const current = items.findIndex((item) => item === document.activeElement);
+    const next = key === "Home" ? 0 : key === "End" ? items.length - 1
+      : (current + (key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
+    items[next]?.focus();
+  }
+
+  return (
+    <div className="filter-menu" ref={wrapperRef} onKeyDown={handleKey}
+      onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false); }}>
+      <button ref={triggerRef} className={`filter-trigger ${value !== "all" ? "active" : ""}`} type="button"
+        aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen((current) => !current)}>
+        <span className="filter-trigger-label">{label}</span>
+        <span className="filter-trigger-value">{options[selectedIndex].label}</span>
+        <span className="filter-chevron" aria-hidden="true">⌄</span>
+      </button>
+      {open && (
+        <div className="filter-menu-panel" role="listbox" aria-label={`${label} filter`}>
+          {options.map((option) => (
+            <button key={option.value} className="filter-option" type="button" role="option" tabIndex={-1}
+              aria-selected={option.value === value} onClick={() => {
+                onChange(option.value);
+                setOpen(false);
+                triggerRef.current?.focus();
+              }}>
+              <span>{option.label}</span>
+              {option.value === value && <span aria-hidden="true">✓</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function DetailRow({ label, value }: { label: string; value?: string }) { return <div className="detail-row"><dt>{label}</dt><dd>{value || "Not provided"}</dd></div>; }

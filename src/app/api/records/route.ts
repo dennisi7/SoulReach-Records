@@ -3,6 +3,10 @@ import { recordSchema } from "@/lib/validation";
 import { submissionClientHash } from "@/lib/rate-limit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
+export function HEAD() {
+  return new NextResponse(null, { status: 204 });
+}
+
 export async function POST(request: NextRequest) {
   let payload: unknown;
   const reader = request.body?.getReader();
@@ -30,6 +34,9 @@ export async function POST(request: NextRequest) {
 
   const parsed = recordSchema.safeParse(payload);
   if (!parsed.success) return NextResponse.json({ error: "Check the highlighted fields.", fields: parsed.error.flatten().fieldErrors }, { status: 422 });
+  if ((payload as { consentConfirmed?: unknown }).consentConfirmed !== true) {
+    return NextResponse.json({ error: "Confirm consent before submitting." }, { status: 422 });
+  }
 
   const supabase = createSupabaseAdminClient();
   const secret = process.env.SUPABASE_SERVICE_ROLE_KEY;
