@@ -8,11 +8,9 @@ const otherId = "00000000-0000-4000-8000-000000000002";
 const newRecord = `
   insert into public.evangelism_records
     (person_full_name, person_phone, student_status, residence, decision, date_reached,
-     baptism_status, preferred_contact_method, evangelist_full_name, evangelist_phone,
-     hall_zone, department, consent_given)
+     baptism_status, preferred_contact_method, evangelist_full_name, consent_given)
   values ('Fictional Person', '024 123 4567', 'Student', 'Trafalgar', 'New Convert', '2026-11-10',
-    'Unknown / not disclosed', 'No Contact', 'Fictional Evangelist', '020 987 6543',
-    'Dave', 'ROSA', true)
+    'Unknown / not disclosed', 'No Contact', 'Fictional Evangelist', true)
 `;
 
 beforeAll(async () => {
@@ -27,7 +25,7 @@ beforeAll(async () => {
     grant usage on schema auth to authenticated;
     insert into auth.users values ('${adminId}'), ('${otherId}');
   `);
-  for (const migration of ["0001_evangelism_records.sql", "20261110155920_secure_record_submissions.sql", "20261110173500_require_record_context.sql"]) {
+  for (const migration of ["0001_evangelism_records.sql", "20261110155920_secure_record_submissions.sql", "20261110173500_require_record_context.sql", "20261113183922_simplify_evangelism_record.sql"]) {
     await db.exec(await readFile(new URL(`../../supabase/migrations/${migration}`, import.meta.url), "utf8"));
   }
   await db.query("insert into public.approved_admins (user_id) values ($1)", [adminId]);
@@ -53,7 +51,7 @@ it("allows only the server role to use the shared submission quota", async () =>
   await db.exec("reset role");
 });
 
-it("requires the contact and ministry context fields", async () => {
+it("still requires the person’s contact and encounter context", async () => {
   await db.exec("set role service_role; begin");
   let error: unknown;
   try {

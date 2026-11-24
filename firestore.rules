@@ -1,0 +1,10 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Records, approved admins, and submission quotas are accessed only
+    // through the trusted server, which validates each request.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

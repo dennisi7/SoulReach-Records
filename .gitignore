@@ -5,6 +5,11 @@ node_modules/
 .env*
 !.env.example
 supabase/.temp/
+.firebase/
+firebase-debug*.log
+firestore-debug*.log
+credentials/
+*-firebase-adminsdk-*.json
 
 .vercel
 .env*

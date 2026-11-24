@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { recordSchema } from "./validation";
+import { adminRecordSchema, recordSchema } from "./validation";
 
 describe("recordSchema", () => {
   it("requires the important contact and context fields", () => {
@@ -18,15 +18,16 @@ describe("recordSchema", () => {
           "baptismStatus",
           "preferredContactMethod",
           "evangelistFullName",
-          "evangelistPhone",
-          "hallZone",
-          "department",
         ]),
       );
     }
   });
 
-  it("accepts unknown baptism status, no contact, and an empty optional hostel", () => {
+  it.each([
+    ["Dave", true],
+    ["", true],
+    ["Jim Fugar Main Campus", false],
+  ])("validates the shorter form with area %j", (area, valid) => {
     const result = recordSchema.safeParse({
       personFullName: "Ama Mensah",
       personPhone: "024 123 4567",
@@ -39,14 +40,11 @@ describe("recordSchema", () => {
       churchDenomination: "Royal House Chapel",
       baptismStatus: "Unknown / not disclosed",
       preferredContactMethod: "No Contact",
-      evangelismLocation: "Jim Fugar Main Campus",
+      evangelismLocation: area,
       evangelistFullName: "Kojo Agyeman",
-      evangelistPhone: "020 987 6543",
-      hallZone: "Dave",
-      department: "ROSA",
     });
 
-    expect(result.success).toBe(true);
+    expect(result.success).toBe(valid);
   });
 
   it("uses actionable messages when required text fields are missing", () => {
@@ -57,12 +55,28 @@ describe("recordSchema", () => {
       const messages = Object.fromEntries(result.error.issues.map((issue) => [issue.path[0], issue.message]));
       expect(messages.personFullName).toBe("Enter the person’s full name.");
       expect(messages.personPhone).toBe("Enter the person’s phone or WhatsApp number.");
-      expect(messages.residence).toBe("Enter the person’s area or residence.");
-      expect(messages.evangelistFullName).toBe("Enter the evangelist’s full name.");
-      expect(messages.evangelistPhone).toBe("Enter your phone or WhatsApp number.");
-      expect(messages.hallZone).toBe("Enter your hall or zone.");
-      expect(messages.department).toBe("Enter your department or ministry.");
+      expect(messages.residence).toBe("Choose the person’s area or residence.");
+      expect(messages.evangelistFullName).toBe("Enter your full name.");
     }
+  });
+
+  it("requires a listed residence for submissions and lets admin edits keep a previous residence", () => {
+    const record = {
+      personFullName: "Ama Mensah",
+      personPhone: "024 123 4567",
+      studentStatus: "Non-student",
+      decision: "New Convert",
+      dateReached: "2026-11-10",
+      baptismStatus: "Unknown / not disclosed",
+      preferredContactMethod: "WhatsApp",
+      evangelistFullName: "Kojo Agyeman",
+    };
+
+    expect(recordSchema.safeParse(record).success).toBe(false);
+    expect(recordSchema.safeParse({ ...record, residence: "Old free-text residence" }).success).toBe(false);
+    expect(recordSchema.safeParse({ ...record, residence: "Godokpe" }).success).toBe(true);
+    expect(adminRecordSchema.parse(record)).not.toHaveProperty("residence");
+    expect(adminRecordSchema.safeParse({ ...record, residence: "" }).success).toBe(false);
   });
 
   it("requires academic level only for students", () => {
@@ -76,9 +90,6 @@ describe("recordSchema", () => {
       baptismStatus: "Unknown / not disclosed",
       preferredContactMethod: "No Contact",
       evangelistFullName: "Kojo Agyeman",
-      evangelistPhone: "020 987 6543",
-      hallZone: "Dave",
-      department: "ROSA",
     });
 
     expect(result.success).toBe(false);

@@ -1,7 +1,7 @@
 "use client";
 
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
-import { recordFields } from "@/lib/record-fields";
+import { evangelismAreas, recordFields } from "@/lib/record-fields";
 import { useRouter } from "next/navigation";
 
 export type AdminRecord = {
@@ -20,11 +20,7 @@ export type AdminRecord = {
   church?: string;
   baptism?: string;
   contactMethod?: string;
-  remarks?: string;
   evangelist?: string;
-  evangelistPhone?: string;
-  hallZone?: string;
-  department?: string;
 };
 
 export function AdminRecords({ initialRecords }: { initialRecords: AdminRecord[] }) {
@@ -41,6 +37,11 @@ export function AdminRecords({ initialRecords }: { initialRecords: AdminRecord[]
   const [contactFeedback, setContactFeedback] = useState<{ error: boolean; text: string } | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const drawerOpen = selected !== null;
+  const areaFields = ["residence", "evangelismLocation"] as const;
+  const previousArea = (key: typeof areaFields[number]) => {
+    const value = selected?.fields?.[key];
+    return value && !evangelismAreas.some((area) => area === value) ? value : undefined;
+  };
 
   useEffect(() => {
     if (!drawerOpen) return;
@@ -68,7 +69,7 @@ export function AdminRecords({ initialRecords }: { initialRecords: AdminRecord[]
   }), [decision, records, search, status]);
 
   function exportCsv() {
-    const rows = ["Name,Decision,Date reached,Location,Follow-up", ...filtered.map((record) =>
+    const rows = ["Name,Decision,Date reached,Evangelism area,Follow-up", ...filtered.map((record) =>
       [record.name, record.decision, record.date, record.location, record.status].map((value) => {
         const safeValue = /^[\s\uFEFF]*[=+@-]|^[\t\r\n]/u.test(value) ? "'" + value : value;
         return '"' + safeValue.replaceAll('"', '""') + '"';
@@ -134,7 +135,7 @@ export function AdminRecords({ initialRecords }: { initialRecords: AdminRecord[]
   return <>
     <div className="records-toolbar"><label className="search-field"><span aria-hidden="true">⌕</span><input placeholder="Search by name or location" aria-label="Search records" value={search} onChange={(event) => setSearch(event.target.value)} /></label><FilterMenu label="Decision" value={decision} onChange={setDecision} options={[{ value: "all", label: "All decisions" }, { value: "New Convert", label: "New Convert" }, { value: "Rededication", label: "Rededication" }]} /><FilterMenu label="Follow-up" value={status} onChange={setStatus} options={[{ value: "all", label: "All follow-up" }, { value: "Contacted", label: "Contacted" }, { value: "Not contacted", label: "Not contacted" }, { value: "Do not contact", label: "Do not contact" }]} /><button className="toolbar-export" type="button" onClick={exportCsv} disabled={filtered.length === 0}>Export filtered CSV</button></div>
     <div className="result-line"><span>{filtered.length} record{filtered.length === 1 ? "" : "s"}</span>{(search || decision !== "all" || status !== "all") && <button type="button" onClick={() => { setSearch(""); setDecision("all"); setStatus("all"); }}>Clear filters</button>}</div>
-    <div className="table-wrap"><table><thead><tr><th>Name</th><th>Decision</th><th>Date reached</th><th>Location</th><th>Follow-up</th><th><span className="sr-only">Action</span></th></tr></thead><tbody>{filtered.map((record) => <tr key={`${record.name}-${record.date}-${record.id ?? "preview"}`}><td><button className="name-button" type="button" onClick={() => openDetails(record)}><strong>{record.name}</strong><span className="mobile-meta">{record.location}</span></button></td><td><span className={`decision decision-${record.decision === "New Convert" ? "new" : "rededication"}`}>{record.decision}</span></td><td>{record.date}</td><td>{record.location}</td><td><span className="status-dot" />{record.status}</td><td><button className="row-action" type="button" onClick={() => openDetails(record)}>View details <span aria-hidden="true">→</span></button></td></tr>)}</tbody></table></div>
+    <div className="table-wrap"><table><thead><tr><th>Name</th><th>Decision</th><th>Date reached</th><th>Evangelism area</th><th>Follow-up</th><th><span className="sr-only">Action</span></th></tr></thead><tbody>{filtered.map((record) => <tr key={`${record.name}-${record.date}-${record.id ?? "preview"}`}><td><button className="name-button" type="button" onClick={() => openDetails(record)}><strong>{record.name}</strong><span className="mobile-meta">{record.location}</span></button></td><td><span className={`decision decision-${record.decision === "New Convert" ? "new" : "rededication"}`}>{record.decision}</span></td><td>{record.date}</td><td>{record.location}</td><td><span className="status-dot" />{record.status}</td><td><button className="row-action" type="button" onClick={() => openDetails(record)}>View details <span aria-hidden="true">→</span></button></td></tr>)}</tbody></table></div>
     {filtered.length === 0 && (
       <div className="empty-note" role="status">
         <span className="empty-icon" aria-hidden="true">⌕</span>
@@ -147,7 +148,7 @@ export function AdminRecords({ initialRecords }: { initialRecords: AdminRecord[]
     {selected && <dialog ref={dialogRef} className="detail-dialog" aria-labelledby="detail-title"
       onCancel={(event) => { event.preventDefault(); closeDetails(); }}
       onClick={(event) => { if (event.target === event.currentTarget) closeDetails(); }}>
-      <aside className="detail-panel"><div className="detail-header"><button className="back-button" type="button" onClick={closeDetails}>← Back to records</button><button className="close-button" type="button" aria-label="Close details" onClick={closeDetails}>×</button></div><p className="eyebrow">Record details</p><h2 id="detail-title">{selected.name}</h2><div className="detail-meta"><span className={`decision decision-${selected.decision === "New Convert" ? "new" : "rededication"}`}>{selected.decision}</span><span>{selected.date}</span></div><section className="detail-section"><h3>Personal</h3><DetailRow label="Phone" value={selected.phone} /><DetailRow label="Student status" value={selected.studentStatus} /><DetailRow label="Academic level" value={selected.academicLevel} /><DetailRow label="Residence" value={selected.residence} /><DetailRow label="Hostel" value={selected.hostel} /></section><section className="detail-section"><h3>Evangelism</h3><DetailRow label="Church or denomination" value={selected.church} /><DetailRow label="Baptism" value={selected.baptism} /><DetailRow label="Preferred contact" value={selected.contactMethod} /><DetailRow label="Location" value={selected.location} /><DetailRow label="Remarks" value={selected.remarks} /></section><section className="detail-section"><h3>Evangelist</h3><DetailRow label="Full name" value={selected.evangelist} /><DetailRow label="Phone" value={selected.evangelistPhone} /><DetailRow label="Hall or zone" value={selected.hallZone} /><DetailRow label="Department" value={selected.department} /></section><button className="button button-primary contact-button" type="button" disabled={!selected.id || selected.status === "Do not contact" || contactBusy || busy} onClick={() => toggleContact(selected)}>{contactBusy ? "Saving…" : selected.status === "Contacted" ? "Mark as not contacted" : "Mark as contacted"}</button>
+      <aside className="detail-panel"><div className="detail-header"><button className="back-button" type="button" onClick={closeDetails}>← Back to records</button><button className="close-button" type="button" aria-label="Close details" onClick={closeDetails}>×</button></div><p className="eyebrow">Record details</p><h2 id="detail-title">{selected.name}</h2><div className="detail-meta"><span className={`decision decision-${selected.decision === "New Convert" ? "new" : "rededication"}`}>{selected.decision}</span><span>{selected.date}</span></div><section className="detail-section"><h3>Personal</h3><DetailRow label="Phone" value={selected.phone} /><DetailRow label="Student status" value={selected.studentStatus} /><DetailRow label="Academic level" value={selected.academicLevel} /><DetailRow label="Residence" value={selected.residence} /><DetailRow label="Hostel" value={selected.hostel} /></section><section className="detail-section"><h3>Evangelism</h3><DetailRow label="Church or denomination" value={selected.church} /><DetailRow label="Baptism" value={selected.baptism} /><DetailRow label="Preferred contact" value={selected.contactMethod} /><DetailRow label="Evangelism area" value={selected.location} /></section><section className="detail-section"><h3>Evangelist</h3><DetailRow label="Full name" value={selected.evangelist} /></section><button className="button button-primary contact-button" type="button" disabled={!selected.id || selected.status === "Do not contact" || contactBusy || busy} onClick={() => toggleContact(selected)}>{contactBusy ? "Saving…" : selected.status === "Contacted" ? "Mark as not contacted" : "Mark as contacted"}</button>
       {contactFeedback && <p className={contactFeedback.error ? "inline-error" : "muted"} role={contactFeedback.error ? "alert" : "status"}>{contactFeedback.text}</p>}
       {selected.id && selected.fields && (
       <section className="detail-section" key={selected.id}>
@@ -156,24 +157,31 @@ export function AdminRecords({ initialRecords }: { initialRecords: AdminRecord[]
           <form className="fields" onSubmit={(event) => {
             event.preventDefault();
             const record = Object.fromEntries(new FormData(event.currentTarget));
+            for (const key of areaFields) {
+              const previous = previousArea(key);
+              if (previous && record[key] === previous) delete record[key];
+            }
             void changeRecord("PATCH", { id: selected.id, record });
           }}>
-            {recordFields.map(([key, , label, options]) => (
+            {recordFields.map(([key, , label, options]) => {
+              const isArea = key === "residence" || key === "evangelismLocation";
+              const previous = isArea ? previousArea(key) : undefined;
+              return (
               <label className="field" key={key}>
                 <span>{label}</span>
                 {options ? (
-                  <select name={key} defaultValue={selected.fields?.[key]} required={key === "decision"}>
-                    <option value="">Select an option</option>
+                  <select name={key} defaultValue={selected.fields?.[key]} required={key === "decision" || key === "residence"}>
+                    <option value="">{isArea ? "Select an area" : "Select an option"}</option>
+                    {previous && <option value={previous}>{previous} (previous entry)</option>}
                     {options.map((value) => <option key={value}>{value}</option>)}
                   </select>
-                ) : key === "remarks" ? (
-                  <textarea name={key} defaultValue={selected.fields?.[key]} maxLength={250} />
                 ) : (
                   <input name={key} defaultValue={selected.fields?.[key]} type={key === "dateReached" ? "date" : "text"}
                     required={["dateReached", "personFullName", "evangelistFullName"].includes(key)} />
                 )}
               </label>
-            ))}
+              );
+            })}
             <button className="button button-primary" disabled={busy || contactBusy}>Save changes</button>
           </form>
         </details>

@@ -3,19 +3,20 @@
 import { useEffect, useRef, useState } from "react";
 import { RosaBrand } from "@/components/rosa-brand";
 import { clearFormDraft, readFormDraft, saveFormDraft } from "@/lib/form-draft";
+import { evangelismAreas, recordFields } from "@/lib/record-fields";
 import { recordSchema, type RecordFormValues } from "@/lib/validation";
 
 const initialValues: RecordFormValues = {
   personFullName: "", personPhone: "", studentStatus: "" as never, academicLevel: "", residence: "", hostel: "",
-  decision: undefined as never, dateReached: new Date().toISOString().slice(0, 10), churchDenomination: "", baptismStatus: "" as never, preferredContactMethod: "" as never, evangelismLocation: "", remarks: "",
-  evangelistFullName: "", evangelistPhone: "", hallZone: "", department: "",
+  decision: undefined as never, dateReached: new Date().toISOString().slice(0, 10), churchDenomination: "", baptismStatus: "" as never, preferredContactMethod: "" as never, evangelismLocation: "",
+  evangelistFullName: "",
 };
 
 const steps = ["Personal", "Evangelism", "Evangelist"];
 const fieldsByStep = [
   ["personFullName", "personPhone", "studentStatus", "academicLevel", "residence", "hostel"],
-  ["decision", "dateReached", "churchDenomination", "baptismStatus", "preferredContactMethod", "evangelismLocation", "remarks"],
-  ["evangelistFullName", "evangelistPhone", "hallZone", "department", "consentConfirmed"],
+  ["decision", "dateReached", "evangelismLocation", "preferredContactMethod", "baptismStatus", "churchDenomination"],
+  ["evangelistFullName", "consentConfirmed"],
 ];
 
 function focusField(key: string) {
@@ -57,8 +58,11 @@ export function RecordForm() {
     const storage = getDraftStorage();
     const draft = storage && readFormDraft(storage);
     if (draft) {
-      setValues({ ...initialValues, ...draft.values });
-      setStep(Math.min(Math.max(draft.step, 0), 2));
+      const savedFields = Object.fromEntries(recordFields.map(([key]) => [key, draft.values[key] ?? initialValues[key]]));
+      const area = evangelismAreas.find((option) => option === draft.values.evangelismLocation);
+      const residence = evangelismAreas.find((option) => option === draft.values.residence);
+      setValues({ ...initialValues, ...savedFields, evangelismLocation: area ?? "", residence: residence ?? "" });
+      setStep(residence ? Math.min(Math.max(draft.step, 0), 2) : 0);
       setDraftStatus("restored");
     }
     setDraftReady(true);
@@ -173,11 +177,38 @@ function Field({ label, name, value, onChange, error, type = "text", placeholder
   const errorId = `${name}-error`;
   return <label className={`field ${error ? "has-error" : ""}`} htmlFor={name}><span>{label}{required && <b className="required-mark" aria-hidden="true">*</b>}</span><input id={name} name={name} type={type} value={value ?? ""} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} aria-invalid={Boolean(error)} aria-describedby={error ? errorId : undefined} required={required} />{error && <small id={errorId}>{error}</small>}</label>;
 }
-function SelectField({ label, name, value, onChange, children, error, required = false }: { label: string; name: string; value?: string; onChange: (value: string) => void; children: React.ReactNode; error?: string; required?: boolean }) {
+function SelectField({ label, name, value, onChange, children, error, required = false, prompt = "Select an option" }: { label: string; name: string; value?: string; onChange: (value: string) => void; children: React.ReactNode; error?: string; required?: boolean; prompt?: string }) {
   const errorId = `${name}-error`;
-  return <label className={`field ${error ? "has-error" : ""}`} htmlFor={name}><span>{label}{required && <b className="required-mark" aria-hidden="true">*</b>}</span><select id={name} name={name} value={value ?? ""} onChange={(event) => onChange(event.target.value)} aria-invalid={Boolean(error)} aria-describedby={error ? errorId : undefined} required={required}><option value="">Select an option</option>{children}</select>{error && <small id={errorId}>{error}</small>}</label>;
+  return <label className={`field ${error ? "has-error" : ""}`} htmlFor={name}><span>{label}{required && <b className="required-mark" aria-hidden="true">*</b>}</span><select id={name} name={name} value={value ?? ""} onChange={(event) => onChange(event.target.value)} aria-invalid={Boolean(error)} aria-describedby={error ? errorId : undefined} required={required}><option value="">{prompt}</option>{children}</select>{error && <small id={errorId}>{error}</small>}</label>;
 }
-function PersonalStep({ values, errors, update }: { values: RecordFormValues; errors: Record<string, string>; update: (key: keyof RecordFormValues, value: string | boolean) => void }) { return <div className="fields"><Field label="Full name" name="personFullName" value={values.personFullName} onChange={(value) => update("personFullName", value)} error={errors.personFullName} placeholder="Enter full name" required /><Field label="Phone or WhatsApp number" name="personPhone" type="tel" value={values.personPhone} onChange={(value) => update("personPhone", value)} error={errors.personPhone} placeholder="e.g. 024 123 4567" required /><SelectField label="Student status" name="studentStatus" value={values.studentStatus} onChange={(value) => update("studentStatus", value)} error={errors.studentStatus} required><option>Student</option><option>Non-student</option></SelectField>{values.studentStatus === "Student" && <SelectField label="Academic level" name="academicLevel" value={values.academicLevel} onChange={(value) => update("academicLevel", value)} error={errors.academicLevel} required><option>100</option><option>200</option><option>300</option><option>400</option><option>500+</option><option>Other</option></SelectField>}<div className="field-row"><Field label="Area or residence" name="residence" value={values.residence} onChange={(value) => update("residence", value)} error={errors.residence} placeholder="e.g. Ho, near Trafalgar" required /><Field label="Hostel" name="hostel" error={errors.hostel} value={values.hostel} onChange={(value) => update("hostel", value)} placeholder="e.g. Trafalgar, Dave, or Berrock" /></div></div>; }
-function EvangelismStep({ values, errors, update }: { values: RecordFormValues; errors: Record<string, string>; update: (key: keyof RecordFormValues, value: string | boolean) => void }) { return <div className="fields"><fieldset id="decision" className={`choice-group ${errors.decision ? "has-error" : ""}`} aria-invalid={Boolean(errors.decision)} aria-describedby={errors.decision ? "decision-error" : undefined}><legend>Decision made <b className="required-mark" aria-hidden="true">*</b></legend><div className="choice-row">{["New Convert", "Rededication"].map((choice) => <label className={`choice ${values.decision === choice ? "selected" : ""}`} key={choice}><input type="radio" required name="decision" value={choice} checked={values.decision === choice} onChange={() => update("decision", choice)} /><span>{choice}</span></label>)}</div>{errors.decision && <small id="decision-error" className="inline-error">{errors.decision}</small>}</fieldset><Field label="Date reached" name="dateReached" type="date" value={values.dateReached} onChange={(value) => update("dateReached", value)} error={errors.dateReached} required /><div className="field-row"><Field label="Church or denomination" name="churchDenomination" error={errors.churchDenomination} value={values.churchDenomination} onChange={(value) => update("churchDenomination", value)} placeholder="e.g. Royal House Chapel" /><SelectField label="Baptism status" name="baptismStatus" value={values.baptismStatus} onChange={(value) => update("baptismStatus", value)} error={errors.baptismStatus} required><option>Yes</option><option>No</option><option>Unknown / not disclosed</option></SelectField></div><SelectField label="Preferred contact method" name="preferredContactMethod" value={values.preferredContactMethod} onChange={(value) => update("preferredContactMethod", value)} error={errors.preferredContactMethod} required><option>Phone call</option><option>WhatsApp</option><option>SMS</option><option>No Contact</option></SelectField><Field label="Location of evangelism" name="evangelismLocation" error={errors.evangelismLocation} value={values.evangelismLocation} onChange={(value) => update("evangelismLocation", value)} placeholder="e.g. Jim Fugar Main Campus" /><label className="field"><span>Additional remarks</span><textarea id="remarks" aria-invalid={Boolean(errors.remarks)} aria-describedby={errors.remarks ? "remarks-error" : undefined} name="remarks" value={values.remarks} maxLength={250} onChange={(event) => update("remarks", event.target.value)} placeholder="Keep notes relevant and concise." />{errors.remarks && <small id="remarks-error">{errors.remarks}</small>}<small className="character-count">{values.remarks?.length ?? 0} / 250</small></label></div>; }
-function EvangelistStep({ values, errors, update }: { values: RecordFormValues; errors: Record<string, string>; update: (key: keyof RecordFormValues, value: string | boolean) => void }) { return <div className="fields"><Field label="Your full name" name="evangelistFullName" value={values.evangelistFullName} onChange={(value) => update("evangelistFullName", value)} error={errors.evangelistFullName} placeholder="Enter full name" required /><Field label="Your phone or WhatsApp number" name="evangelistPhone" type="tel" value={values.evangelistPhone} onChange={(value) => update("evangelistPhone", value)} error={errors.evangelistPhone} placeholder="e.g. 024 123 4567" required /><div className="field-row"><Field label="Hall or zone" name="hallZone" value={values.hallZone} onChange={(value) => update("hallZone", value)} error={errors.hallZone} placeholder="e.g. Trafalgar, Dave, or Berrock" required /><Field label="Department or ministry" name="department" value={values.department} onChange={(value) => update("department", value)} error={errors.department} placeholder="e.g. ROSA, Nursing, or Music" required /></div><div className="review-card"><div><p className="eyebrow">Before you submit</p><h3>Check the record is accurate.</h3><p>Consent is confirmed before this form is sent. Please make sure the contact details and encounter notes are correct.</p></div></div></div>; }
+function PersonalStep({ values, errors, update }: { values: RecordFormValues; errors: Record<string, string>; update: (key: keyof RecordFormValues, value: string | boolean) => void }) { return <div className="fields"><Field label="Full name" name="personFullName" value={values.personFullName} onChange={(value) => update("personFullName", value)} error={errors.personFullName} placeholder="Enter full name" required /><Field label="Phone or WhatsApp number" name="personPhone" type="tel" value={values.personPhone} onChange={(value) => update("personPhone", value)} error={errors.personPhone} placeholder="e.g. 024 123 4567" required /><SelectField label="Student status" name="studentStatus" value={values.studentStatus} onChange={(value) => update("studentStatus", value)} error={errors.studentStatus} required><option>Student</option><option>Non-student</option></SelectField>{values.studentStatus === "Student" && <SelectField label="Academic level" name="academicLevel" value={values.academicLevel} onChange={(value) => update("academicLevel", value)} error={errors.academicLevel} required><option>100</option><option>200</option><option>300</option><option>400</option><option>500+</option><option>Other</option></SelectField>}<div className="field-row"><SelectField label="Area or residence" name="residence" prompt="Select an area" value={values.residence} onChange={(value) => update("residence", value)} error={errors.residence} required>{evangelismAreas.map((area) => <option key={area}>{area}</option>)}</SelectField><Field label="Hostel" name="hostel" error={errors.hostel} value={values.hostel} onChange={(value) => update("hostel", value)} placeholder="e.g. Trafalgar, Dave, or Berrock" /></div></div>; }
+type StepProps = {
+  values: RecordFormValues;
+  errors: Record<string, string>;
+  update: (key: keyof RecordFormValues, value: string | boolean) => void;
+};
+
+function EvangelismStep({ values, errors, update }: StepProps) {
+  return (
+    <div className="fields">
+      <fieldset id="decision" className={`choice-group ${errors.decision ? "has-error" : ""}`} aria-invalid={Boolean(errors.decision)} aria-describedby={errors.decision ? "decision-error" : undefined}><legend>Decision made <b className="required-mark" aria-hidden="true">*</b></legend><div className="choice-row">{["New Convert", "Rededication"].map((choice) => <label className={`choice ${values.decision === choice ? "selected" : ""}`} key={choice}><input type="radio" required name="decision" value={choice} checked={values.decision === choice} onChange={() => update("decision", choice)} /><span>{choice}</span></label>)}</div>{errors.decision && <small id="decision-error" className="inline-error">{errors.decision}</small>}</fieldset>
+      <Field label="Date reached" name="dateReached" type="date" value={values.dateReached} onChange={(value) => update("dateReached", value)} error={errors.dateReached} required />
+      <SelectField label="Evangelism area" name="evangelismLocation" prompt="Select an area" value={values.evangelismLocation}
+        onChange={(value) => update("evangelismLocation", value)} error={errors.evangelismLocation}>
+        {evangelismAreas.map((area) => <option key={area}>{area}</option>)}
+      </SelectField>
+      <SelectField label="Preferred contact method" name="preferredContactMethod" prompt="Select a contact method" value={values.preferredContactMethod} onChange={(value) => update("preferredContactMethod", value)} error={errors.preferredContactMethod} required><option>Phone call</option><option>WhatsApp</option><option>SMS</option><option>No Contact</option></SelectField>
+      <SelectField label="Baptism status" name="baptismStatus" prompt="Select a status" value={values.baptismStatus} onChange={(value) => update("baptismStatus", value)} error={errors.baptismStatus} required><option>Yes</option><option>No</option><option>Unknown / not disclosed</option></SelectField>
+      <Field label="Church or denomination" name="churchDenomination" error={errors.churchDenomination} value={values.churchDenomination} onChange={(value) => update("churchDenomination", value)} placeholder="e.g. Royal House Chapel" />
+    </div>
+  );
+}
+
+function EvangelistStep({ values, errors, update }: StepProps) {
+  return (
+    <div className="fields">
+      <Field label="Your full name" name="evangelistFullName" value={values.evangelistFullName} onChange={(value) => update("evangelistFullName", value)} error={errors.evangelistFullName} placeholder="Enter full name" required />
+    </div>
+  );
+}
 function SuccessState({ heading, onReset }: { heading: React.Ref<HTMLHeadingElement>; onReset: () => void }) { return <main className="success-shell"><div className="success-mark">✓</div><p className="eyebrow">Record submitted</p><h1 ref={heading} tabIndex={-1}>Thank you for<br /><em>keeping the story.</em></h1><p className="success-copy">The encounter has been recorded securely. Your team can now see it and follow up according to the person’s preference.</p><button className="button button-primary" onClick={onReset} type="button">Record another encounter <span aria-hidden="true">→</span></button></main>; }

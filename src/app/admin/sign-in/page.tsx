@@ -4,7 +4,6 @@ import { type FormEvent, Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { RosaBrand } from "@/components/rosa-brand";
 import { useSearchParams } from "next/navigation";
-import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 export default function AdminSignInPage() {
   return <Suspense fallback={<main className="auth-shell" />}><SignInForm /></Suspense>;
@@ -28,31 +27,22 @@ function SignInForm() {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (loading) return;
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
-      setError("Admin sign-in requires Supabase configuration.");
-      return;
-    }
     const fields = new FormData(event.currentTarget);
     const email = String(fields.get("email") ?? "").trim();
     const password = String(fields.get("password") ?? "");
     setLoading(true);
     setError("");
     try {
-      const supabase = createSupabaseBrowserClient();
-      const result = await supabase.auth.signInWithPassword({ email, password });
-      if (!result.error) {
+      const response = await fetch("/api/admin/session", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const result = await response.json().catch(() => null);
+      if (response.ok) {
         window.location.replace("/admin");
         return;
       }
-      if (result.error.code === "invalid_credentials") {
-        setError("That email and password did not match. Check both and try again.");
-      } else if (result.error.code === "email_not_confirmed") {
-        setError("Confirm your email address using the message from Supabase, then try again.");
-      } else if (result.error.status === 429) {
-        setError("Too many sign-in attempts. Wait a moment before trying again.");
-      } else {
-        setError("Sign-in is temporarily unavailable. Check your connection and try again.");
-      }
+      setError(result?.error ?? "Sign-in is temporarily unavailable. Try again.");
     } catch {
       setError("Sign-in is temporarily unavailable. Try again.");
     }

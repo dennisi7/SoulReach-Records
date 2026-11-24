@@ -4,4 +4,7 @@
 node_modules
 outputs
 work
+credentials
+firebase-debug*.log
+firestore-debug*.log
 *.tsbuildinfo

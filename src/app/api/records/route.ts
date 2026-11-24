@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { recordSchema } from "@/lib/validation";
 import { submissionClientHash } from "@/lib/rate-limit";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { recordsDb } from "@/lib/firebase/admin";
+import { recordData, reserveQuota } from "@/lib/firebase/records";
 
 export function HEAD() {
   return new NextResponse(null, { status: 204 });
@@ -38,14 +39,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Confirm consent before submitting." }, { status: 422 });
   }
 
-  const supabase = createSupabaseAdminClient();
-  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabase || !secret) return NextResponse.json({ error: "Record submission is not configured yet." }, { status: 503 });
-
-  const { data: retryAfter, error: quotaError } = await supabase.rpc("reserve_record_submission", {
-    p_client_hash: submissionClientHash(request.headers, secret),
-  });
-  if (quotaError || !Number.isInteger(retryAfter) || retryAfter < 0) {
+  const secret = process.env.SUBMISSION_HASH_SECRET;
+  if (!secret) return NextResponse.json({ error: "Record submission is not configured yet." }, { status: 503 });
+  let retryAfter: number;
+  try {
+    retryAfter = await reserveQuota(submissionClientHash(request.headers, secret));
+  } catch {
     return NextResponse.json({ error: "Submissions are temporarily unavailable. Try again later." }, { status: 503 });
   }
   if (retryAfter > 0) {
@@ -55,28 +54,13 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const data = parsed.data;
-  const { error } = await supabase.from("evangelism_records").insert({
-    person_full_name: data.personFullName,
-    person_phone: data.personPhone || null,
-    student_status: data.studentStatus || null,
-    academic_level: data.studentStatus === "Student" ? data.academicLevel || null : null,
-    residence: data.residence || null,
-    hostel: data.hostel || null,
-    decision: data.decision,
-    date_reached: data.dateReached,
-    church_denomination: data.churchDenomination || null,
-    baptism_status: data.baptismStatus || null,
-    preferred_contact_method: data.preferredContactMethod || null,
-    evangelism_location: data.evangelismLocation || null,
-    remarks: data.remarks || null,
-    evangelist_full_name: data.evangelistFullName,
-    evangelist_phone: data.evangelistPhone || null,
-    hall_zone: data.hallZone || null,
-    department: data.department || null,
-    consent_given: true,
-  });
-
-  if (error) return NextResponse.json({ error: "The record could not be saved. Please try again." }, { status: 500 });
+  try {
+    const now = new Date().toISOString();
+    await recordsDb().collection("evangelism_records").add({
+      ...recordData(parsed.data), consent_given: true, contacted: false, created_at: now, updated_at: now,
+    });
+  } catch {
+    return NextResponse.json({ error: "The record could not be saved. Please try again." }, { status: 500 });
+  }
   return NextResponse.json({ ok: true }, { status: 201 });
 }

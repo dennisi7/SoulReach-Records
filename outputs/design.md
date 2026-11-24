@@ -63,19 +63,17 @@ Show **Step 1 of 3**, the current section name, and a three-segment progress rul
 | 1 · Personal | Phone or WhatsApp number | Required · phone input that accepts familiar local and international formats |
 | 1 · Personal | Student status | Required · Student / Non-student |
 | 1 · Personal | Academic level | Required when Student is selected · 100 / 200 / 300 / 400 / 500+ / Other |
-| 1 · Personal | Area or residence | Required · HO/UHAS context, such as Trafalgar, Dave, or Berrock |
+| 1 · Personal | Area or residence | Required · native dropdown with the same nine choices as Evangelism area |
 | 1 · Personal | Hostel | Optional · text |
 | 2 · Evangelism | Decision | Required · New Convert / Rededication, equally weighted radio choices with no preselection |
 | 2 · Evangelism | Date reached | Required · local date input, defaults to today and can be changed |
-| 2 · Evangelism | Church or denomination | Optional · text |
-| 2 · Evangelism | Baptism status | Required · Yes / No / Unknown or not disclosed |
+| 2 · Evangelism | Evangelism area | Optional · full-width native dropdown for where the encounter happened · Ahoe / Alaye / Dave / Godokpe / Kojobi / Mirage / Poly / Sokode / Trafalgar |
 | 2 · Evangelism | Preferred contact method | Required · Phone call / WhatsApp / SMS / No Contact |
-| 2 · Evangelism | Evangelism location | Optional · HO/UHAS context, such as Jim Fugar Main Campus |
-| 2 · Evangelism | Remarks | Optional · multiline, proposed limit of 250 characters with a visible count and a prompt to keep notes relevant |
+| 2 · Evangelism | Baptism status | Required · Yes / No / Unknown / not disclosed |
+| 2 · Evangelism | Church or denomination | Optional · text |
 | 3 · Evangelist | Evangelist’s full name | Required · text |
-| 3 · Evangelist | Evangelist’s phone number | Required · phone input |
-| 3 · Evangelist | Hall or zone | Required · examples include Trafalgar, Dave, or Berrock |
-| 3 · Evangelist | Department or ministry | Required · examples include ROSA, Nursing, or Music |
+
+Place the separate consent confirmation below the evangelist’s name, followed by Back and Submit record. Field feedback removed the remarks, evangelist phone, hall or zone, and department from new submissions. Existing values are retained in storage.
 
 Reveal academic level immediately below Student status. If Student is deselected, hide the field and clear its previous value. Leaving the preferred contact method blank means no preference was recorded. **No Contact** is an explicit instruction and stays distinct from a blank answer.
 
@@ -98,14 +96,14 @@ On success show **Record submitted**, a brief acknowledgment, and **Record anoth
 - Use a compact sign-in screen with the wordmark, **Admin sign-in**, labeled email and password controls, a password visibility button, and a clear return to the public form. Allow password managers and paste. Show a neutral sign-in error and a distinct access-denied state for a signed-in account without approval. The first release serves one approved administrator, with the same sign-in experience for any additional approved users.
 - The dashboard has a top bar with the product name, **Records**, and **Sign out**. The page title is **Evangelism records**. Use a slim strip of counts for **Total records**, **New converts**, and **Rededications**, labeled as overall totals. Keep the results count next to the list.
 - Search by name or evangelism location. Filter by decision and contact status. Make active filters visible with **Clear filters**. Keep the search, filters, and export aligned with the list. Show the newest encounter dates first. Provide pagination when the result set needs it.
-- Desktop columns are **Name**, **Decision**, **Date reached**, **Evangelism location**, **Follow-up**, and **View details**. Use a real table, a restrained tint for status labels, and plain-language dates such as “10 Nov 2026.” Keep phone numbers, baptism status, and remarks inside the detail view.
+- Desktop columns are **Name**, **Decision**, **Date reached**, **Evangelism area**, **Follow-up**, and **View details**. Use a real table, a restrained tint for status labels, and plain-language dates such as “10 Nov 2026.” Keep phone numbers and baptism status inside the detail view. Use the area label in details and CSV as well. The editor offers the same nine choices and preserves a previous free-text location unless an admin changes it.
 - On narrow screens, replace the wide table with a vertical list divided by rules. Put the name first, followed by the decision, date, follow-up state, and a visible **View details** action. Long names and locations wrap. Search remains full-width, and the remaining toolbar controls wrap underneath.
 - Label the export **Export CSV**. The proposed scope is all records matching the current search and filters, across pages. Show that scope and the count before download. Treat the file as private in the export copy and keep names out of filenames.
 
 ### Record detail, edit, and follow-up
 
 - Open a right-hand detail panel on desktop, about 480–560 px wide, with the list still in view. On phones and tablets below 960 px, open a full-screen detail view with **Back to records**. Restore the same filters, page, scroll position, and focus when the admin returns.
-- Lead with the person’s name, decision, encounter date, and follow-up state. Display all 17 submitted fields in **Personal**, **Evangelism**, and **Evangelist** groups, using the same labels as the form. Show “Not provided” for missing optional values and “Not applicable” for an academic level that did not apply. Below the groups, show that consent was recorded before form submission, plus submission time and last updated time. Keep that consent status visible and read-only during ordinary field corrections.
+- Lead with the person’s name, decision, encounter date, and follow-up state. Group the retained fields under **Personal**, **Evangelism**, and **Evangelist**, using the same labels as the form. Show “Not provided” for missing optional values and “Not applicable” for an academic level that did not apply. Below the groups, show that consent was recorded before form submission, plus submission time and last updated time. Keep that consent status visible and read-only during ordinary field corrections.
 - Put **Mark as contacted** or **Mark as not contacted** beside the current follow-up status. Treat the status as a manual record of follow-up. With an explicit No Contact preference, show **Do not contact** in the list and at the top of the detail view, with the follow-up action unavailable and a short explanation. If preference is missing, show **No preference recorded** in detail and avoid assuming permission.
 - **Edit record** uses the same field groups and input styles. Use **Save changes** and **Cancel**. Preserve edits on failure, show validation next to the affected fields, and ask before discarding changes. Return to the detail view after a confirmed save and update the list entry.
 - Place **Delete record** at the bottom of the detail view. A confirmation identifies the record and states that deletion is permanent. Give **Cancel** initial focus. Close the panel and update the list only after a confirmed deletion. On failure, keep the record visible and provide a retry.
